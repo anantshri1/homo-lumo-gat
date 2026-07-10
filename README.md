@@ -81,3 +81,8 @@ Phase 4: Polish + README
 * Benchmark table (your MAE vs SchNet vs DimeNet published numbers)
 * Colab notebook for interactive inference (links to your deployed endpoint)
 * Clean README with architecture diagram
+
+---
+# References
+* **MoleculeNet: A Benchmark for Molecular Machine Learning**, Zhenqin Wu, Bharath Ramsundar, Evan N. Feinberg, Joseph Gomes, Caleb Geniesse, Aneesh S. Pappu, Karl Leswing, Vijay Pande. (2017). [arXiv:1703.00564](https://arxiv.org/abs/1703.00564)
+
