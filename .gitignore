@@ -18,3 +18,4 @@ data/processed/
 
 # Colab mount point (never commit Drive paths)
 /content/
+drive-download-*/
