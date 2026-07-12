@@ -153,6 +153,48 @@ $$
 Our MPNN graph property prediction model can be trained end-to-end via minimizing the standard mean-squared error loss for regression:
 $\mathcal{L}_{MSE} = \lVert y - \hat y \rVert^2_2$.
 
+---
+## Serving Infrastructure
+
+### Architecture
+The inference service runs as two containers orchestrated by Docker Compose:
+
+- **FastAPI** (`:8000`) — loads the GATv2 model at startup and exposes three endpoints:
+  - `POST /predict` — single SMILES → gap (eV) + uncertainty via MC dropout
+  - `POST /batch` — list of SMILES → predictions
+  - `GET /health` — model status, device, version
+- **MCP Server** (`:8001`) — wraps the FastAPI endpoints as callable tools (`predict_gap`, `batch_predict`) so any MCP-compatible LLM agent can query the model directly
+
+### Docker
+
+Two Dockerfiles serve different targets:
+
+- `Dockerfile` — CUDA-enabled build using `pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime` as base. For GPU inference on any machine with an NVIDIA driver. PyTorch and cuDNN come pre-installed in the base image; no manual CUDA wheel management needed.
+- `Dockerfile.flyio` — CPU-only build using `python:3.10-slim`. Installs PyTorch from the `+cpu` wheel index. Used for cloud deployment where no GPU is available. Image size: ~700MB vs ~3GB for the CUDA variant.
+
+Key Docker decisions:
+- Dependencies are installed before code is copied, so the expensive pip layers (PyTorch, PyG, RDKit) stay cached across code changes
+- `torch-scatter` is installed from PyG's own wheel index with an explicit `torch-2.3.0+cpu` tag — it must match the PyTorch version exactly or import will silently fail
+- `best_model.pt` is force-added to git (`.gitignore` has `*.pt`) and explicitly exempted in `.dockerignore` with `!checkpoints/best_model.pt`. Without the exemption the build context excludes the weights and the container crashes on startup.
+- The MCP server uses a plain `python:3.10-slim` base — no ML dependencies, just `httpx` and `mcp`. It proxies requests to FastAPI rather than loading the model itself.
+
+### MCP Integration
+The MCP server speaks SSE (Server-Sent Events) transport over HTTP. This makes it network-addressable — any MCP-compatible LLM agent can connect to it without needing to spawn it as a local process (unlike stdio transport). Inside Docker Compose, the MCP server reaches FastAPI via the service hostname `http://fastapi:8000`, which Docker's internal DNS resolves automatically.
+
+### Deployment
+Deployed to Fly.io free tier at `https://homo-lumo-gat.fly.dev`.
+
+- Region: Frankfurt (fra)
+- Machine: shared-cpu-1x, 1GB RAM
+- Auto-stop enabled (machine sleeps when idle, wakes on first request — expect ~2s cold start)
+- Build handled remotely by Fly.io's Depot builder
+
+Interactive API docs available at `https://homo-lumo-gat.fly.dev/docs`.
+
+### What's not here (and why)
+- Intermediate checkpoints (`checkpoint_epoch_*.pt`) are local-only — not in git, not in the container. Only `best_model.pt` ships.
+- The MCP server is not deployed — it's a local/agent tool. The FastAPI endpoint is the public artifact.
+- Model weights are in git for simplicity (16MB). Production pattern would be to pull from Hugging Face Hub or S3 at container startup.
 
 
 ---
