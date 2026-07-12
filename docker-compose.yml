@@ -1,0 +1,27 @@
+# Block 1: FastAPI service
+services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - CHECKPOINT_PATH=/app/checkpoints/best_model.pt
+    networks:
+      - default
+    
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    ports:
+      - "8001:8001"
+    depends_on:
+      - fastapi
+    networks:
+      - default
+  
+networks:
+  default:
+    name: molpredict-network

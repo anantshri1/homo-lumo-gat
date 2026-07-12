@@ -1,0 +1,15 @@
+# Block 1: Base image
+FROM python:3.10-slim
+
+# Block 2: System dependencies and working directory
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /app
+RUN pip install --upgrade pip
+
+# Block 3: Python dependencies
+RUN pip install httpx mcp
+
+# Block 4: Copy code and entrypoint
+COPY mcp_server/ ./mcp_server/
+EXPOSE 8001
+CMD ["python", "mcp_server/server.py"]
