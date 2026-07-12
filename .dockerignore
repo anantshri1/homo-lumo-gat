@@ -1,0 +1,28 @@
+# flyctl launch added from .gitignore
+# Python
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
+**/.env
+
+# Data and model weights (too large for git)
+**/data/raw
+**/data/processed
+**/*.pt
+!checkpoints/best_model.pt
+**/*.ckpt
+
+# Jupyter
+**/.ipynb_checkpoints
+
+# OS
+**/.DS_Store
+
+# Colab mount point (never commit Drive paths)
+content
+**/drive-download-*
+
+# flyctl launch added from .pytest_cache/.gitignore
+# Created by pytest automatically.
+.pytest_cache/**/*
+fly.toml
