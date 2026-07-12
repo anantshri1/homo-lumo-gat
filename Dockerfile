@@ -1,0 +1,28 @@
+FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    libxrender1 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+
+WORKDIR /app
+RUN pip install --upgrade pip
+RUN pip install torch-geometric==2.5.3
+RUN pip install torch-scatter -f https://data.pyg.org/whl/torch-2.3.0+cu121.html
+
+RUN pip install \
+    rdkit==2024.3.3 \
+    fastapi==0.111.0 \
+    uvicorn==0.30.1 \
+    pydantic==2.7.1 \
+    numpy==1.26.4 \
+    tqdm==4.66.4
+
+COPY serving/ ./serving/
+COPY checkpoints/best_model.pt ./checkpoints/best_model.pt
+
+ENV CHECKPOINT_PATH=/app/checkpoints/best_model.pt
+EXPOSE 8000
+CMD ["uvicorn", "serving.app:app", "--host", "0.0.0.0", "--port", "8000"]

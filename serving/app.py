@@ -2,11 +2,12 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 import torch
+import os
 
 from serving.graph_builder import smiles_to_graph
 from serving.inference import load_model, predict, predict_with_uncertainty
 
-CHECKPOINT_PATH = "/Users/anantshri/Desktop/Python/ML_DL/homo-lumo-gat/checkpoints/best_model.pt"
+CHECKPOINT_PATH = os.getenv("CHECKPOINT_PATH", "checkpoints/best_model.pt")
 DEVICE = "cpu"
 VERSION = "0.1.0"
 
