@@ -259,6 +259,36 @@ Interactive API docs available at `https://homo-lumo-gat.fly.dev/docs`.
 - The MCP server is not deployed — it's a local/agent tool. The FastAPI endpoint is the public artifact.
 - Model weights are in git for simplicity (16MB). Production pattern would be to pull from Hugging Face Hub or S3 at container startup.
 
+### Calling the API
+
+**As a developer**
+Send a POST request to the deployed endpoint directly:
+
+```python
+import requests
+
+response = requests.post(
+    "https://homo-lumo-gat.fly.dev/predict",
+    json={"smiles": "CC(=O)Oc1ccccc1C(=O)O"}  # aspirin
+)
+print(response.json())
+# {"smiles": "CC(=O)Oc1ccccc1C(=O)O", "gap_ev": 6.21, "uncertainty_ev": 0.14}
+```
+
+**As an LLM agent**
+Run the MCP server locally (requires Docker Compose):
+
+```bash
+docker compose up
+```
+
+Then point any MCP-compatible agent (Claude Desktop, LangChain, etc.) to `http://localhost:8001/sse`. 
+The agent will discover two tools automatically — `predict_gap` (single molecule) and 
+`batch_predict` (list of molecules) — and can call them in response to natural language queries 
+like "What is the HOMO-LUMO gap of caffeine?".
+
+The MCP server is not deployed publicly because it is a local bridge between an agent and the 
+deployed API — the agent runs on your machine, the model runs on Fly.io.
 
 ---
 # References
