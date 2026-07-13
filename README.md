@@ -137,21 +137,12 @@ Let us break down the MPNN layer into three pedagogical steps:
 **Global Pooling and Prediction Head**
 
 After $L$ layers of message passing, we obtain the final node features $h_i^{\ell=L}$. As we have a single target $y$ per graph, we must pool all node features into a single graph feature or graph embedding $h_G \in \mathbb{R}^d$ via another permutation-invariant function $R$, sometimes called the 'readout' function, as follows:
-$h_G = R_{i \in \mathcal{V}} \left( h_i^{\ell=L} \right)$. 
-$$ 
-We will use global average pooling over all node features, i.e.
-$$
-h_G = \frac{1}{|\mathcal{V}|} \sum_{i \in \mathcal{V}} h_i^{\ell=L}. 
-$$
-
-The graph embedding $h_G$ is passed through a linear prediction head $W_{pred} \in \mathbb{R}^{d} \rightarrow \mathbb{R}^1$ to obtain the overall prediction $\hat y \in \mathbb{R}^1$:
-$$
-\hat y = W_{pred} \left( h_G \right).
-$$ 
+$h_G = R_{i \in \mathcal{V}} \left( h_i^{\ell=L} \right)$. We will use global average pooling over all node features, i.e. $h_G = \frac{1}{|V|}\sum_{i\in V}h_i^{\ell = L}$. The graph embedding $h_G$ is passed through a linear prediction head $W_{pred} \in \mathbb{R}^{d} \rightarrow \mathbb{R}^1$ to obtain the overall prediction $\hat y \in \mathbb{R}^1$: $\hat y = W_{pred} \left (h_G\right)$.
 
 **Loss Function**
-Our MPNN graph property prediction model can be trained end-to-end via minimizing the standard mean-squared error loss for regression:
-$\mathcal{L}_{MSE} = \lVert y - \hat y \rVert^2_2$.
+
+Our MPNN graph property prediction model can be trained end-to-end via minimizing the standard mean absolute error loss for regression:
+$\mathcal{L}_{MAE} = \lVert y - \hat y \rVert$.
 
 ---
 ## Serving Infrastructure
