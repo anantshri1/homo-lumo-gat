@@ -1,8 +1,10 @@
 # MolPredict — GATv2 HOMO-LUMO Gap Inference API
 
-**Stack**:
-`PyTorch, PyTorch Geometric, RDKit, FastAPI, Docker, MCP, Uvicorn`
- 
+`homo-lumo-gat` is a graph neural network trained on the QM9 dataset that predicts the HOMO-LUMO gap of small organic molecules from their SMILES string representation. The model is served via a production-grade FastAPI inference API, containerized with Docker, and exposed as a callable tool via an MCP server so that LLM agents can query it directly. The live API is deployed at https://homo-lumo-gat.fly.dev.
+
+> **What is the HOMO-LUMO gap?** 
+The HOMO-LUMO gap is the energy difference between a molecule's Highest Occupied Molecular Orbital and its Lowest Unoccupied Molecular Orbital, measured in electron volts (eV). It is one of the most important descriptors in computational chemistry — a large gap indicates a chemically stable, electrically insulating molecule, while a small gap indicates reactivity and potential conductivity. Predicting this gap cheaply (without running expensive quantum chemistry simulations) is a core problem in drug discovery and materials science.
+<!---
 **Architecture: GATv2 Message Passing Network**
 ```
 SMILES string
@@ -81,14 +83,13 @@ Phase 4: Polish + README
 * Benchmark table (your MAE vs SchNet vs DimeNet published numbers)
 * Colab notebook for interactive inference (links to your deployed endpoint)
 * Clean README with architecture diagram
-
+--->
 ---
 ## A Gentle Guide to Graph Neural Networks
 
 **Graph Neural Networks** (GNNs) are a part of an emerging research paradigm called **Geometric Deep Learning** -- devising neural network architectures that respect the invariances and symmetries in data. 
 
-Molecules are a great example of an object from nature that can easily be represented as a graph of atoms (nodes) connected by bonds (edges). 
-A popular application of GNNs in chemistry is the task of **Molecular Property Prediction**. The goal is to train a GNN model from historical experimental data that can predict useful properties of drug-like molecules. The model's predictions can then be used to guide the drug design process.
+Molecules are naturally represented as graphs: atoms are nodes and bonds are edges. A Graph Neural Network exploits this structure directly. Rather than flattening a molecule into a fixed-size fingerprint (losing structural information), a GNN operates on the graph itself through a process called *message passing*. In each *message passing* layer, every atom aggregates feature information from its bonded neighbors, updates its own representation, and passes the result to the next layer. After several rounds of this, each atom's embedding encodes not just its own identity but its full local chemical context. A global pooling operation then collapses all atom embeddings into a single molecule-level vector, which a prediction head maps to the target property.
 
 <img src="https://github.com/chaitjo/dump/raw/main/molproppred.png">
 
@@ -103,13 +104,12 @@ Specifically, we will be predicting the [HOMO-LUMO gap](https://en.wikipedia.org
 
 ### Message Passing Neural Networks in PyTorch Geometric
 
-As a gentle introduction to PyTorch Geometric, we will walk you through the first steps of developing a GNN in the **Message Passing** flavor.
+GNNs come in three different flavors, as shown below:
 
 <img src="https://github.com/chaitjo/dump/raw/main/gnn-layers.png">
 
-**Formalism**
 
-Firstly, let us formalise our molecular property prediction pipeline. 
+Firstly, we formalise our molecular property prediction pipeline. 
 
 **Graph** 
 
@@ -125,8 +125,8 @@ We will design a Message Passing Neural Network for graph property prediction to
 **MPNN Layer**
 
 The Message Passing operation iteratively updates node features $h_i^{\ell} \in \mathbb{R}^d$ from layer $\ell$ to layer $\ell+1$ via the following equation:
-$h_i^{\ell+1}$ = $\phi$ $\Bigg( h_i^{\ell}$, $\oplus_{j \in \mathcal{N}_i}$ $\Big( \psi \left( h_i^{\ell}, h_j^{\ell}, e_{ij} \right) \Big) \Bigg),$
-where $\psi, \phi$ are Multi-Layer Perceptrons (MLPs), and $\oplus$ is a permutation-invariant local neighborhood aggregation function such as summation, maximization, or averaging.
+$h_i^{(\ell+1)}=\phi\ \left(h_i^{(\ell)},\bigoplus_{j\in\mathcal{N}(i)}\psi\\left(h_i^{(\ell)},h_j^{(\ell)},e_{ij}\right)\right)$
+where $\psi, \phi$ are Multi-Layer Perceptrons (MLPs), and $\bigoplus$ is a permutation-invariant local neighborhood aggregation function such as summation, maximization, or averaging.
 
 Let us break down the MPNN layer into three pedagogical steps:
 - **Step (1): Message.** For each pair of linked nodes $i, j$, the network first computes a message $m_{ij} =  \psi \left( h_i^{\ell}, h_j^{\ell}, e_{ij} \right)$. The MLP $\psi: \mathbb{R}^{2d + d_e} → \mathbb{R}^d$ takes as input the concatenation of the feature vectors from the source node, destination node, and edge.
