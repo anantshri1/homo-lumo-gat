@@ -144,7 +144,9 @@ $h_G = R_{i \in \mathcal{V}} \left( h_i^{\ell=L} \right)$. We will use global av
 Our MPNN graph property prediction model can be trained end-to-end via minimizing the standard mean absolute error loss for regression:
 $\mathcal{L}_{MAE} = \lVert y - \hat y \rVert$.
 
-### Architecture
+---
+
+## Architecture
 The model is a `GATv2` (Graph Attention Network v2) with three message-passing layers, residual connections, and a two-layer MLP prediction head.
 Input features come directly from PyTorch Geometric's QM9 dataset class. Node features are 11-dimensional per atom (atomic number, degree, formal charge, hybridization, aromaticity, hydrogen count, ring membership, and others). Edge features are 4-dimensional per bond (bond type, conjugation, ring membership, stereo). These are the raw graph features QM9 provides — no 3D coordinates are used.
 
@@ -207,6 +209,24 @@ The inference service runs as two containers orchestrated by Docker Compose:
   - `POST /batch` — list of SMILES → predictions
   - `GET /health` — model status, device, version
 - **MCP Server** (`:8001`) — wraps the FastAPI endpoints as callable tools (`predict_gap`, `batch_predict`) so any MCP-compatible LLM agent can query the model directly
+
+CURL commands have the general form:
+```
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"smiles": "C1=CC=CC=C1"}'
+```
+which returns:
+```
+{"smiles":"C1=CC=CC=C1","gap_ev":8.5004,"uncertainty_ev":0.1698}
+```
+and:
+```
+curl -X POST http://localhost:8000/batch \
+  -H "Content-Type: application/json" \
+  -d '{"smiles_list": ["c1ccccc1", "C", "CC(=O)O"]}'
+```
+
 
 ### Docker
 
