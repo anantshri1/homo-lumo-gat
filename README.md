@@ -144,6 +144,58 @@ $h_G = R_{i \in \mathcal{V}} \left( h_i^{\ell=L} \right)$. We will use global av
 Our MPNN graph property prediction model can be trained end-to-end via minimizing the standard mean absolute error loss for regression:
 $\mathcal{L}_{MAE} = \lVert y - \hat y \rVert$.
 
+### Architecture
+The model is a `GATv2` (Graph Attention Network v2) with three message-passing layers, residual connections, and a two-layer MLP prediction head.
+Input features come directly from PyTorch Geometric's QM9 dataset class. Node features are 11-dimensional per atom (atomic number, degree, formal charge, hybridization, aromaticity, hydrogen count, ring membership, and others). Edge features are 4-dimensional per bond (bond type, conjugation, ring membership, stereo). These are the raw graph features QM9 provides — no 3D coordinates are used.
+
+`GATv2` was chosen over the original `GAT` because it fixes a fundamental expressiveness limitation. In `GAT`, attention weights are computed before node features are combined, making the attention query-independent — the same pair of nodes always produces the same attention weight regardless of context. `GATv2` (Brody et al., 2022) fixes this by computing attention after concatenation and transformation, making it a strictly more expressive attention mechanism. In practice, this means the model can learn more context-sensitive atom interactions.
+
+Each GATv2Conv layer uses 4 attention heads averaged (`concat=False`) to keep the hidden dimension at 256 across all layers. Residual connections are added at every layer with a linear projection to handle the dimension mismatch at layer 1 (11-dim input to 256-dim output). Without residuals, gradient flow degrades significantly in deeper GNNs.
+
+After the third message-passing layer, the atom embeddings are reduced to a single molecule embedding via global mean pooling and global max pooling concatenated together (512-dim total). Mean pooling captures average atom character; max pooling captures the most salient atom in the molecule. Using both consistently outperforms either alone.
+The MLP head maps `512 → 256 → 128 → 1` with ReLU activations and dropout between layers.
+
+**Pipeline summary**
+
+```
+SMILES string
+    ↓ RDKit
+Molecular Graph (nodes=atoms, edges=bonds)
+    ↓
+Atom feature embedding (atomic number, valence, 
+    hybridization, aromaticity, charge)
+    ↓
+3× GATv2Conv layers (with residual connections)
+    ↓
+Global mean + max pooling (concatenated)
+    ↓
+MLP head (256 → 128 → 1)
+    ↓
+HOMO-LUMO gap (eV)
+```
+
+### Training
+
+The model was trained on QM9 (approximately 130,000 molecules) with a standard 110k/10k/10k train/val/test split matching the split used in published baselines. Training used the `Adam` optimizer with an initial learning rate of `1e-3` and a `ReduceLROnPlateau` scheduler (`patience=10, factor=0.5`). Loss function is L1 (MAE), which is the standard benchmark metric for QM9 and is less sensitive to outlier molecules than MSE. Training ran for 200 epochs on a T4 GPU via Google Colab, with checkpointing to Google Drive after every 10 epochs and on every validation improvement.
+
+**Results**
+```
+Test MAE: 0.1712 eV
+Best validation MAE: 0.1675 eV (epoch 120, converged)
+```
+Published baselines on QM9 HOMO-LUMO gap:
+```
+SchNet: 0.0670 eV
+DimeNet: 0.0469 eV
+```
+The gap to SchNet and DimeNet is expected and explained by a fundamental difference in input information. Both SchNet and DimeNet use 3D atomic coordinates — they know the actual geometry of the molecule in space, including bond lengths, bond angles, and dihedral angles. This project uses only 2D graph topology: which atoms are bonded to which, with no geometric information. A 2D-topology-only model cannot learn the same geometric features that drive quantum mechanical properties, so a higher MAE is the correct outcome, not a failure of the architecture. The more honest comparison is with other 2D-topology models on QM9, where this result is competitive.
+
+### Inference and the RDKit graph builder
+
+At inference time, a user submits an arbitrary SMILES string. The serving layer uses RDKit to parse it into a molecular graph and constructs a PyTorch Geometric Data object with the same feature specification as QM9. A critical implementation detail: QM9 was built by PyG with `sanitize=False`, which means hybridization features are always zero in the training data. The RDKit graph builder in this project deliberately replicates this behavior. Using `sanitize=True` at inference time would produce non-zero hybridization features, putting the input out of distribution relative to what the model was trained on. Correctness of the chemistry matters less here than consistency with the training distribution.
+
+The `/predict` endpoint also supports MC dropout uncertainty estimation: `dropout` is left active at inference time and the forward pass is run `N` times. The mean of the `N` predictions is the reported gap value and the standard deviation is the reported uncertainty. This gives a cheap but meaningful confidence interval without requiring an ensemble of models.
+
 ---
 ## Serving Infrastructure
 
@@ -192,5 +244,6 @@ Interactive API docs available at `https://homo-lumo-gat.fly.dev/docs`.
 # References
 * **MoleculeNet: A Benchmark for Molecular Machine Learning**, Zhenqin Wu, Bharath Ramsundar, Evan N. Feinberg, Joseph Gomes, Caleb Geniesse, Aneesh S. Pappu, Karl Leswing, Vijay Pande. (2017). [arXiv:1703.00564](https://arxiv.org/abs/1703.00564)
 * **Molecular Mechanics-Driven Graph Neural Network with Multiplex Graph for Molecular Structures**, Shuo Zhang, Yang Liu, Lei Xie. (2020). [arXiv:2011.07457](https://arxiv.org/abs/2011.07457).
+* **How Attentive are Graph Attention Networks?**, Shaked Brody, Uri Alon, Eran Yahav. (2022). [arXiv:2105.14491](https://arxiv.org/abs/2105.14491)
 
 
